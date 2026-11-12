@@ -11,7 +11,7 @@ Pleos Connect (Android Automotive) IVI 앱. 차량 상태 신호에서 이상을
 
 | | 내용 |
 |---|---|
-| **상황 인지형 판단** | 같은 전조등 고장이라도 낮에는 1단계(주말 방문), 밤에는 3단계(즉시 정비)로 판단이 바뀝니다 |
+| **상황 인지형 판단** | 같은 전조등 이상이라도 환경에 따라 등급이 바뀝니다. 전조등 미점등은 낮 1단계 → 밤 3단계, 적응형 전조등 경고는 낮 2단계 → 밤 3단계 |
 | **DTC 없이 추론** | Vehicle SDK 에는 고장코드 API 가 없습니다. 정상 상태 신호의 **불일치·임계값·편차·추이**에서 이상을 찾아냅니다 |
 | **설명 가능한 판단** | 왜 이 등급인지(어떤 환경 요소가 몇 점 반영됐는지)를 화면에 근거로 표시합니다. 등급은 규칙이 정하고 LLM 은 설명만 합니다 |
 
@@ -114,6 +114,8 @@ LLM 설명만 뒤따라 채워지는 2단 렌더링 구조입니다.
 | `data/llm/LlmExplainer.kt` | 설명 생성. 등급은 건드리지 않음 |
 | `data/llm/ExplanationTemplates.kt` | 오프라인 폴백 문구 |
 | `ui/car/CarDiagram.kt` | 부위별 색 표시 + 터치. 3D 교체 지점 |
+| `platform/AlertManager.kt` | 단계적 알림(확장 A) — 등급별 알림 강도 + 음성 |
+| `data/report/ServiceReport.kt` | 정비소 사전 리포트(확장 B) — 근거까지 담은 JSON |
 | `platform/DrivingStateMonitor.kt` | AAOS CarUxRestrictions |
 
 ---
@@ -177,7 +179,8 @@ Vehicle SDK 2.3.2 의 AAR 을 디컴파일해 실제 메서드 시그니처를 �
 .\gradlew.bat testDebugUnitTest
 ```
 
-기획안의 시나리오 A·B·C 가 실제로 그 등급을 내는지 검증합니다. 가중치 표를 고치면
+**18건** — 기획안의 시나리오 A·B·C 가 실제로 그 등급을 내는지(`ScenarioTest` 12건),
+정비소 리포트가 판단 근거를 제대로 싣는지(`ServiceReportTest` 6건) 검증합니다. 가중치 표를 고치면
 `ScenarioTest` 가 먼저 깨지므로, 규칙 변경이 조용히 시연을 망가뜨리지 않습니다.
 
 ---
@@ -202,6 +205,81 @@ Vehicle SDK 2.3.2 의 AAR 을 디컴파일해 실제 메서드 시그니처를 �
 - minSdk **28** (차량 사이버보안 요건) · compileSdk/targetSdk **35**
 - AGP 8.7.3 · Gradle 8.11.1 · **JDK 17**
 - Ktor (날씨·LLM) · kotlinx.serialization · DataStore
+
+
+## 확장 기능 (해외 사례 문서 A·B·C)
+
+해외 사례 문서의 추천 조합 **기본 + A + B + C** 를 전부 구현했습니다.
+"진단 → 판단 → 알림 → 외부 연결"이 한 흐름으로 이어집니다.
+
+### A. 단계적 알림 — `platform/AlertManager.kt`
+
+등급이 오를수록 알림 강도를 올립니다 (Wake Me App 사례 구조를 4단계에 매핑).
+
+| 등급 | 알림 |
+|---|---|
+| 1 여유 있게 | 조용한 알림만 (소리 없음) |
+| 2 목적지 후 | 일반 알림 |
+| 3 즉시 정비 | 높은 중요도 알림 + **음성 안내(TTS)** |
+| 4 즉시 정차 | 긴급 알림 + 음성 + **풀스크린** — 주행 중에도 즉시 노출 |
+
+**같은 증상이 같은 등급에 머무는 동안에는 다시 울리지 않습니다.** 등급이 올라갈 때만
+재알림합니다 — 그래야 "단계적"이 성립합니다. 진단이 4초마다 도는데 매번 울리면 알림이 아니라 소음입니다.
+
+음성은 차량 오디오 포커스(`USAGE_ASSISTANCE_NAVIGATION_GUIDANCE`)를 받아 내비·음악 위로 안내합니다.
+AAOS 는 주행 중 화면 텍스트를 강제로 제한하므로, 3·4등급은 화면이 아니라 소리로 먼저 전달합니다.
+한국어 TTS 데이터가 없는 환경에서는 알림만 동작하도록 폴백합니다.
+
+> **알림 권한 함정** — 이 AAOS 에뮬레이터는 앱을 **user 10** 으로 실행합니다.
+> `adb shell pm grant` 를 user 지정 없이 쓰면 user 0 에만 부여돼 알림이 뜨지 않습니다.
+> ```
+> adb shell pm grant --user 10 com.cardoctor.advisor android.permission.POST_NOTIFICATIONS
+> ```
+
+### B. 정비소 사전 리포트 — `data/report/ServiceReport.kt`
+
+정비 권고 화면의 **[리포트 내보내기]** 버튼으로 JSON 파일을 떨어뜨립니다.
+
+```
+/storage/emulated/<user>/Android/data/com.cardoctor.advisor/files/reports/
+  cardoctor_report_YYYYMMDD_HHmmss.json
+```
+
+고장 부위·등급뿐 아니라 **판단 근거 신호와 가중치 내역까지** 싣습니다. 등급만 적힌 리포트는
+정비소가 믿을 근거가 없어, 과잉 정비를 막는다는 목적을 달성하지 못합니다.
+
+```json
+{
+  "summary": { "totalFindings": 3, "worstLevel": 3, "worstLevelName": "즉시 정비" },
+  "environment": { "daylight": "밤", "weather": "맑음", "simulated": false },
+  "findings": [{
+    "part": "좌측 전조등",
+    "evidence": "적응형 전조등 경고등이 점등되어 있습니다",
+    "detectionPattern": "경고등 점등",
+    "baseSeverity": 2,
+    "appliedWeights": [{ "reason": "야간 운행 — 시야 확보 필요", "points": 3 }],
+    "urgencyScore": 5,
+    "adviceLevel": 3
+  }]
+}
+```
+
+`simulated` 필드가 있는 이유 — 시연용으로 환경을 수동 설정한 상태의 리포트를 정비소가
+실측값으로 오해하면 안 되기 때문입니다.
+
+내용 생성은 `ServiceReportBuilder` 로 분리해 안드로이드 의존 없이 단위 테스트합니다.
+
+### C. 예측 정비 라이트
+
+누적 주행거리 기반 소모품 교체 주기 도래를 감지합니다 (`AnomalyDetector.detectServiceInterval`).
+제언 문서의 "C 는 범위를 좁히라" 판정을 따라 **결정론적이라 시연 시간 안에 결과가 나오는 항목만**
+구현했습니다. 배터리 전압 추이 분석은 짧은 시연에서 의미 있는 데이터를 모을 수 없습니다.
+
+### E · F 는 미구현
+
+외관 손상 스캔(E)은 IVI 에 적합한 카메라 접근 수단이 없고, 운전자 상태 결합(F)은 SDK 21개
+도메인에 운전자 모니터링이 없습니다. 제언 문서의 "제외" 판정과 같은 결론이며, 발표에서는
+"향후 확장" 비전으로 제시하는 편이 정직합니다.
 
 ---
 
