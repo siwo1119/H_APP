@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 차량 + 진단 체크 모양의 단순 아이콘 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#4DA3FF"
+        android:pathData="M33,46 L38,34 L70,34 L75,46 L78,46 A3,3 0 0 1 81,49 L81,66 A2,2 0 0 1 79,68 L73,68 A2,2 0 0 1 71,66 L71,63 L37,63 L37,66 A2,2 0 0 1 35,68 L29,68 A2,2 0 0 1 27,66 L27,49 A3,3 0 0 1 30,46 Z" />
+    <path
+        android:fillColor="#0E1216"
+        android:pathData="M41,40 L67,40 L70,46 L38,46 Z" />
+    <path
+        android:fillColor="#2EA86A"
+        android:pathData="M46,53 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0" />
+    <path
+        android:fillColor="#F2B01E"
+        android:pathData="M62,53 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0" />
+</vector>

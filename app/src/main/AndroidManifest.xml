@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- AAOS 전용 앱. 자동차 하드웨어가 없는 기기에는 설치되지 않는다. -->
+    <uses-feature
+        android:name="android.hardware.type.automotive"
+        android:required="true" />
+
+    <!-- 날씨 조회·AI 설명 (둘 다 실패해도 진단·등급 판정은 동작한다) -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!--
+        Pleos Vehicle SDK 권한.
+        protectionLevel 이 normal 이라 런타임 권한 대화 상자가 없다 — 선언만 하면 자동 부여된다.
+        쓰기(CONTROL_*) 는 선언하지 않는다. 이 앱은 진단 전용이라 차량 상태를 바꾸지 않는다.
+
+        PRIVATE_* 도 함께 선언해야 한다. SDK 메서드마다 요구 권한이 다르고, 일부는 PRIVATE 쪽만
+        받는다 — 예: Tire.getTirePressure 는 PRIVATE_CAR_SAFETY 를 요구해서, CAR_SAFETY 만
+        선언하면 "getTirePressure need Permission" 으로 조용히 실패한다.
+        (근거: AAR 의 @RequiresPermission 어노테이션 전수 확인 — docs/SDK_API_NOTES.md)
+    -->
+    <uses-permission android:name="pleos.car.permission.CAR_LIGHTS" />
+    <uses-permission android:name="pleos.car.permission.CAR_SAFETY" />
+    <uses-permission android:name="pleos.car.permission.CAR_DRIVE" />
+    <uses-permission android:name="pleos.car.permission.CAR_ENERGY" />
+    <uses-permission android:name="pleos.car.permission.CAR_DOORS" />
+    <uses-permission android:name="pleos.car.permission.CAR_WINDOWS" />
+    <uses-permission android:name="pleos.car.permission.CAR_SEATS" />
+    <uses-permission android:name="pleos.car.permission.CAR_INFO" />
+    <uses-permission android:name="pleos.car.permission.CAR_CLIMATE" />
+
+    <uses-permission android:name="pleos.car.permission.PRIVATE_CAR_SAFETY" />
+    <uses-permission android:name="pleos.car.permission.PRIVATE_CAR_LIGHTS" />
+    <uses-permission android:name="pleos.car.permission.PRIVATE_CAR_DRIVE" />
+    <uses-permission android:name="pleos.car.permission.PRIVATE_CAR_ENERGY" />
+    <uses-permission android:name="pleos.car.permission.PRIVATE_CAR_DOORS" />
+    <uses-permission android:name="pleos.car.permission.PRIVATE_CAR_WINDOWS" />
+    <uses-permission android:name="pleos.car.permission.PRIVATE_CAR_SEATS" />
+    <uses-permission android:name="pleos.car.permission.PRIVATE_CAR_INFO" />
+    <uses-permission android:name="pleos.car.permission.PRIVATE_CAR_CLIMATE" />
+
+    <application
+        android:name=".CarDoctorApplication"
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.CarDoctor">
+
+        <!-- AAOS CarUxRestrictions — 선택적 시스템 라이브러리 -->
+        <uses-library
+            android:name="android.car"
+            android:required="false" />
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:launchMode="singleTask"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.CarDoctor">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- 차량 런처(앱 서랍)에 노출되기 위한 메타데이터 -->
+        <meta-data
+            android:name="distractionOptimized"
+            android:value="true" />
+    </application>
+
+</manifest>
