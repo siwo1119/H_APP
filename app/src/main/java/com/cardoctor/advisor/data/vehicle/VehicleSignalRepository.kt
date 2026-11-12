@@ -104,6 +104,10 @@ class VehicleSignalRepository(private val appContext: Context) {
             }
         }
         val range = async {
+            // SDK 가 Google RANGE_REMAINING 으로 옮기라며 deprecated 표시를 달았지만,
+            // 그 속성은 android.car CarPropertyManager 쪽이라 Vehicle SDK 경로로는 대체가 없다.
+            // 실차 연동 시 android.car 로 교체할 지점.
+            @Suppress("DEPRECATION")
             sdkCall<Float>("getRangeRemainingDistance") { ok, ng ->
                 v.getOdometer().getRangeRemainingDistance(ok, ng)
             }
@@ -287,6 +291,9 @@ class VehicleSignalRepository(private val appContext: Context) {
     }
 
     private suspend fun readGear(v: Vehicle): GearState {
+        // RANGE_REMAINING 과 같은 사정 — Google GEAR_SELECTION 은 android.car 쪽 속성이라
+        // Vehicle SDK 경로로는 대체가 없다. 실차 연동 시 교체할 지점.
+        @Suppress("DEPRECATION")
         val gear = sdkCall<VehicleGear>("gear") { ok, ng ->
             v.getGear().getCurrentGearSelectionState(ok, ng)
         } ?: return GearState.UNKNOWN

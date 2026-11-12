@@ -11,3 +11,14 @@
 -keepclasseswithmembers class com.cardoctor.advisor.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
+
+# Ktor(OkHttp 엔진)가 slf4j API 를 참조하지만, 안드로이드에서는 바인딩 구현이 없다.
+# slf4j 2.x 에는 StaticLoggerBinder 자체가 존재하지 않으므로 경고만 끈다.
+-dontwarn org.slf4j.**
+-dontwarn org.conscrypt.**
+-dontwarn org.bouncycastle.**
+-dontwarn org.openjsse.**
+
+# Ktor 내부 리플렉션
+-keep class io.ktor.** { *; }
+-dontwarn io.ktor.**
