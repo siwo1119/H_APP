@@ -47,6 +47,9 @@ data class DiagnosisUiState(
     val llmConfigured: Boolean = false,
     val selectedPart: CarPart? = null,
     val selectedAnomalyId: String? = null,
+    /** 정비소 사전 리포트(확장 아이디어 B) 내보내기 상태 */
+    val reportExporting: Boolean = false,
+    val reportPath: String? = null,
 ) {
     /** 가장 높은 등급 — 상단 종합 상태 배지에 쓴다. */
     val worstLevel: AdviceLevel? get() = findings.maxByOrNull { it.adviceLevel.level }?.adviceLevel

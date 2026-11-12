@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 알림용 단색 아이콘 (상태표시줄은 알파만 사용한다) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFFFFF">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M12,2 L22,20 L2,20 Z M11,9 L13,9 L13,15 L11,15 Z M11,16.5 L13,16.5 L13,18.5 L11,18.5 Z" />
+</vector>

@@ -10,6 +10,16 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+    <!-- 단계적 알림(확장 아이디어 A). API 33+ 는 런타임 권한이다. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- TTS 엔진 조회 — 음성 안내 가능 여부를 확인하기 위해 필요 -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
+
     <!--
         Pleos Vehicle SDK 권한.
         protectionLevel 이 normal 이라 런타임 권한 대화 상자가 없다 — 선언만 하면 자동 부여된다.

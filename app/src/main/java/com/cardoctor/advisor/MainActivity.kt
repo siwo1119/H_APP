@@ -1,8 +1,13 @@
 package com.cardoctor.advisor
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -34,8 +39,27 @@ import com.cardoctor.advisor.ui.scan.ScanScreen
 import com.cardoctor.advisor.ui.theme.CarDoctorTheme
 
 class MainActivity : ComponentActivity() {
+
+    /**
+     * 단계적 알림(확장 아이디어 A)에 필요한 권한.
+     * API 33+ 는 런타임 권한이며, 거부돼도 앱은 그대로 동작한다 — 알림만 안 뜬다.
+     */
+    private val requestNotificationPermission =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* 결과와 무관하게 진행 */ }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val granted = ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS,
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!granted) {
+                requestNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+
         setContent {
             CarDoctorTheme {
                 CarDoctorApp()
@@ -120,7 +144,11 @@ private fun CarDoctorApp(viewModel: DiagnosisViewModel = viewModel()) {
                 )
             }
             composable(Screen.ADVICE.route) {
-                AdviceScreen(state = state, onBack = { navigateTab(Screen.HOME) })
+                AdviceScreen(
+                    state = state,
+                    onExportReport = viewModel::exportReport,
+                    onBack = { navigateTab(Screen.HOME) },
+                )
             }
             composable(Screen.DETAIL.route) {
                 val finding = state.selectedFinding

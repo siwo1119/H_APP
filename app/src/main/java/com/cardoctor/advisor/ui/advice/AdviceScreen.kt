@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,6 +41,7 @@ import com.cardoctor.advisor.ui.common.color
 @Composable
 fun AdviceScreen(
     state: DiagnosisUiState,
+    onExportReport: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -85,7 +87,27 @@ fun AdviceScreen(
 
         LevelGuideRow()
 
-        SectionCard(title = "정비소 전달용 요약", modifier = Modifier.weight(1f)) {
+        SectionCard(
+            title = "정비소 전달용 요약",
+            modifier = Modifier.weight(1f),
+            trailing = {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (state.reportExporting) {
+                        Text(
+                            "내보내는 중…",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Button(onClick = onExportReport, enabled = sorted.isNotEmpty()) {
+                        Text("리포트 내보내기")
+                    }
+                }
+            },
+        ) {
             if (sorted.isEmpty()) {
                 Text("전달할 이상 항목이 없습니다.", style = MaterialTheme.typography.bodyLarge)
             } else {
@@ -94,6 +116,13 @@ fun AdviceScreen(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                state.reportPath?.let { path ->
+                    Text(
+                        "저장됨 · $path",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(sorted, key = { it.anomaly.id }) { finding ->
                         Card(

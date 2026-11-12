@@ -14,6 +14,8 @@ import com.cardoctor.advisor.domain.model.Finding
 import com.cardoctor.advisor.domain.model.RoadType
 import com.cardoctor.advisor.domain.model.Weather
 import com.cardoctor.advisor.domain.severity.SeverityEngine
+import com.cardoctor.advisor.data.report.ServiceReportExporter
+import com.cardoctor.advisor.platform.AlertManager
 import com.cardoctor.advisor.platform.DrivingStateMonitor
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -38,6 +40,8 @@ class DiagnosisViewModel(app: Application) : AndroidViewModel(app) {
     private val explainer = LlmExplainer()
     private val historyStore = HistoryStore(app)
     private val drivingMonitor = DrivingStateMonitor(app)
+    private val alertManager = AlertManager(app)
+    private val reportExporter = ServiceReportExporter(app)
 
     private val _state = MutableStateFlow(DiagnosisUiState())
     val state: StateFlow<DiagnosisUiState> = _state.asStateFlow()
@@ -50,6 +54,7 @@ class DiagnosisViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         drivingMonitor.start()
+        alertManager.start()
         viewModelScope.launch {
             drivingMonitor.state.collect { driving ->
                 _state.value = _state.value.copy(driving = driving)
@@ -124,7 +129,20 @@ class DiagnosisViewModel(app: Application) : AndroidViewModel(app) {
             )
 
             historyStore.record(findings, now)
+            raiseAlerts(findings)
             requestExplanations(findings)
+        }
+    }
+
+    /**
+     * 단계적 알림(확장 아이디어 A).
+     * 설명이 이미 와 있으면 그 요약을, 아직이면 기본 권고 문구를 쓴다 —
+     * 알림이 LLM 응답을 기다리느라 늦어지면 "즉시 정차" 안내의 의미가 없다.
+     */
+    private fun raiseAlerts(findings: List<Finding>) {
+        val explanations = _state.value.explanations
+        alertManager.notify(findings) { finding ->
+            explanations[finding.anomaly.id]?.summary
         }
     }
 
@@ -140,8 +158,37 @@ class DiagnosisViewModel(app: Application) : AndroidViewModel(app) {
             val findings = SeverityEngine.evaluateAll(anomalies, context)
 
             _state.value = _state.value.copy(context = context, findings = findings)
+            raiseAlerts(findings)
             requestExplanations(findings)
         }
+    }
+
+    // ── 정비소 사전 리포트 (확장 아이디어 B) ───────────────────────────────
+
+    /** 현재 진단 결과를 JSON 리포트 파일로 내보낸다. */
+    fun exportReport() {
+        viewModelScope.launch {
+            val s = _state.value
+            _state.value = s.copy(reportPath = null, reportExporting = true)
+            val file = reportExporter.export(
+                findings = s.findings,
+                context = s.context,
+                snapshot = s.snapshot,
+                nowMillis = System.currentTimeMillis(),
+            )
+            _state.value = _state.value.copy(
+                reportExporting = false,
+                reportPath = file?.absolutePath,
+            )
+        }
+    }
+
+    /** 화면에서 미리보기로 보여줄 리포트 JSON. */
+    fun reportPreview(): String {
+        val s = _state.value
+        return reportExporter.toJson(
+            reportExporter.build(s.findings, s.context, s.snapshot, System.currentTimeMillis())
+        )
     }
 
     // ── LLM 설명 (2단 렌더링의 뒷단) ────────────────────────────────────────
@@ -194,6 +241,7 @@ class DiagnosisViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun clearHistory() {
+        alertManager.reset()
         viewModelScope.launch { historyStore.clear() }
     }
 
@@ -216,6 +264,7 @@ class DiagnosisViewModel(app: Application) : AndroidViewModel(app) {
         pollJob?.cancel()
         explainJob?.cancel()
         drivingMonitor.stop()
+        alertManager.stop()
         vehicleRepo.disconnect()
         explainer.close()
         envRepo.close()
