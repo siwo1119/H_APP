@@ -70,6 +70,11 @@
             android:launchMode="singleTask"
             android:screenOrientation="landscape"
             android:theme="@style/Theme.CarDoctor">
+            <!-- AAOS 는 주행 중 차단 여부를 activity 단위 메타데이터로 판단한다.
+                 application 에만 두면 무시되어 주행 중 앱 전체가 가려진다. -->
+            <meta-data
+                android:name="distractionOptimized"
+                android:value="true" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

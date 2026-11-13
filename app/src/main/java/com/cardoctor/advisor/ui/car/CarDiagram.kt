@@ -23,6 +23,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
@@ -71,12 +73,13 @@ fun CarDiagram(
     val scheme = MaterialTheme.colorScheme
     val palette = remember(scheme) {
         DiagramPalette(
-            body = scheme.surfaceVariant,
+            body = scheme.surface,
             bodyEdge = scheme.outline,
-            glass = scheme.surface,
-            partNormal = scheme.onSurfaceVariant.copy(alpha = 0.30f),
-            partEdge = scheme.outline.copy(alpha = 0.55f),
+            glass = scheme.primaryContainer,
+            partNormal = scheme.onSurfaceVariant.copy(alpha = 0.14f),
+            partEdge = scheme.onSurfaceVariant.copy(alpha = 0.22f),
             label = scheme.onSurface,
+            labelBg = scheme.surface,
             selection = scheme.primary,
         )
     }
@@ -123,6 +126,7 @@ private data class DiagramPalette(
     val partNormal: Color,
     val partEdge: Color,
     val label: Color,
+    val labelBg: Color,
     val selection: Color,
 )
 
@@ -144,8 +148,14 @@ private fun DrawScope.drawCarBody(layout: CarPartLayout, palette: DiagramPalette
         lineTo(body.left, body.top + noseDepth)
         close()
     }
+    // 은은한 그림자 — 차체가 배경 위에 떠 보이게
+    for (i in 3 downTo 1) {
+        translate(top = layout.scale(0.004f) * i) {
+            drawPath(outline, color = Color.Black.copy(alpha = 0.025f))
+        }
+    }
     drawPath(outline, color = palette.body)
-    drawPath(outline, color = palette.bodyEdge, style = Stroke(width = layout.scale(0.005f)))
+    drawPath(outline, color = palette.bodyEdge, style = Stroke(width = layout.scale(0.004f)))
 
     // 앞/뒤 유리 — 사다리꼴로 그려 방향감을 준다.
     fun glass(topY: Float, bottomY: Float, topInset: Float, bottomInset: Float) {
@@ -156,7 +166,7 @@ private fun DrawScope.drawCarBody(layout: CarPartLayout, palette: DiagramPalette
             lineTo(body.left + body.width * bottomInset, body.top + body.height * bottomY)
             close()
         }
-        drawPath(p, color = palette.glass.copy(alpha = 0.55f))
+        drawPath(p, color = palette.glass.copy(alpha = 0.9f))
     }
     glass(topY = 0.235f, bottomY = 0.305f, topInset = 0.16f, bottomInset = 0.06f)
     glass(topY = 0.855f, bottomY = 0.785f, topInset = 0.16f, bottomInset = 0.06f)
@@ -198,7 +208,7 @@ private fun DrawScope.drawPart(
         topLeft = rect.topLeft,
         size = rect.size,
         cornerRadius = radius,
-        style = Stroke(width = 1.5f),
+        style = Stroke(width = 2f),
     )
 
     if (selected) {
@@ -216,13 +226,29 @@ private fun DrawScope.drawPart(
     if (status != PartStatus.NORMAL) {
         val measured = textMeasurer.measure(
             text = part.label,
-            style = TextStyle(fontSize = 14.sp, color = palette.label),
+            style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = palette.label),
         )
-        val tx = (rect.center.x - measured.size.width / 2f)
-            .coerceIn(0f, (size.width - measured.size.width).coerceAtLeast(0f))
-        val ty = (rect.bottom + 6f)
-            .coerceAtMost((size.height - measured.size.height).coerceAtLeast(0f))
-        drawText(measured, topLeft = Offset(tx, ty))
+        val padX = 10f
+        val padY = 5f
+        val w = measured.size.width + padX * 2
+        val h = measured.size.height + padY * 2
+        val bx = (rect.center.x - w / 2f).coerceIn(0f, (size.width - w).coerceAtLeast(0f))
+        val by = (rect.bottom + 8f).coerceAtMost((size.height - h).coerceAtLeast(0f))
+        val accent = if (status == PartStatus.DANGER) StatusDanger else StatusCaution
+        drawRoundRect(
+            color = palette.labelBg,
+            topLeft = Offset(bx, by),
+            size = Size(w, h),
+            cornerRadius = CornerRadius(h / 2f),
+        )
+        drawRoundRect(
+            color = accent,
+            topLeft = Offset(bx, by),
+            size = Size(w, h),
+            cornerRadius = CornerRadius(h / 2f),
+            style = Stroke(width = 2f),
+        )
+        drawText(measured, topLeft = Offset(bx + padX, by + padY))
     }
 }
 
@@ -279,10 +305,12 @@ class CarPartLayout private constructor(
 
     companion object {
         fun fit(widthPx: Float, heightPx: Float): CarPartLayout {
-            val side = minOf(widthPx, heightPx)
+            // 차량(타이어 포함)이 실제로 차지하는 영역은 정규화 좌표 기준 가로 ≈0.69, 세로 ≈0.90 이다.
+            // 정사각형 전체가 아니라 이 영역을 기준으로 맞춰야 카드 공간을 낭비하지 않는다.
+            val side = minOf(widthPx / 0.74f, heightPx / 0.94f)
             return CarPartLayout(
-                originX = (widthPx - side) / 2f,
-                originY = (heightPx - side) / 2f,
+                originX = widthPx / 2f - side * 0.5f,
+                originY = heightPx / 2f - side * 0.5f,
                 side = side,
             )
         }

@@ -2,15 +2,24 @@ package com.cardoctor.advisor.ui.detail
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -23,8 +32,11 @@ import androidx.compose.ui.unit.dp
 import com.cardoctor.advisor.data.llm.LlmExplainer
 import com.cardoctor.advisor.domain.model.Finding
 import com.cardoctor.advisor.platform.DrivingStateMonitor
+import com.cardoctor.advisor.ui.common.InfoRow
 import com.cardoctor.advisor.ui.common.LevelBadge
 import com.cardoctor.advisor.ui.common.SectionCard
+import com.cardoctor.advisor.ui.common.StatusIcon
+import com.cardoctor.advisor.ui.common.color
 
 /**
  * 진단 상세.
@@ -53,100 +65,167 @@ fun DetailScreen(
         return
     }
 
+    val tint = finding.adviceLevel.color()
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(32.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
+        // ── 헤더 ──
         Row(
             Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            Column {
-                Text(finding.part.label, style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(finding.title, style = MaterialTheme.typography.displaySmall)
+            FilledTonalIconButton(onClick = onBack, modifier = Modifier.size(56.dp)) {
+                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "뒤로")
+            }
+            StatusIcon(finding.adviceLevel, size = 64.dp)
+            Column(Modifier.weight(1f)) {
+                Text(
+                    finding.part.label,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(finding.title, style = MaterialTheme.typography.headlineMedium)
             }
             LevelBadge(finding.adviceLevel)
         }
 
-        SectionCard(title = "지금 해야 할 일") {
-            Text(finding.adviceLevel.message, style = MaterialTheme.typography.headlineSmall)
-        }
-
-        SectionCard(title = "AI 설명") {
-            when {
-                driving.isDriving -> {
-                    Text(
-                        driving.restrict(explanation?.summary ?: finding.adviceLevel.message),
-                        style = MaterialTheme.typography.headlineSmall,
-                    )
-                    Text(
-                        "주행 중에는 요약만 표시됩니다. 정차 후 상세 설명을 확인하세요.",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                explanation == null -> {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        CircularProgressIndicator(strokeWidth = 3.dp)
-                        Text("설명을 생성하는 중입니다…", style = MaterialTheme.typography.bodyLarge)
+        Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+            Column(Modifier.weight(0.55f), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+                // ── 지금 해야 할 일 ──
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(MaterialTheme.shapes.large)
+                        .background(tint.copy(alpha = 0.10f))
+                        .padding(28.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Box(Modifier.size(width = 6.dp, height = 64.dp).clip(MaterialTheme.shapes.small).background(tint))
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("지금 해야 할 일", style = MaterialTheme.typography.labelLarge, color = tint)
+                        Text(finding.adviceLevel.message, style = MaterialTheme.typography.headlineSmall)
                     }
                 }
-                else -> {
-                    Text(explanation.detail, style = MaterialTheme.typography.bodyLarge)
+
+                ExplanationCard(finding, explanation, driving)
+            }
+
+            Column(Modifier.weight(0.45f), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+                EvidenceCard(finding)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Icon(Icons.Rounded.Info, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
                     Text(
-                        if (explanation.fromLlm) "AI 생성 설명" else "오프라인 사전 작성 문구",
+                        "본 안내는 참고용입니다. 최종 판단은 정비 전문가에게 받으세요.",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
         }
+    }
+}
 
-        EvidenceCard(finding)
-
-        OutlinedButton(onClick = onBack) { Text("홈으로") }
-
-        Text(
-            "본 안내는 참고용입니다. 최종 판단은 정비 전문가에게 받으세요.",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+@Composable
+private fun ExplanationCard(
+    finding: Finding,
+    explanation: LlmExplainer.Explanation?,
+    driving: DrivingStateMonitor.State,
+) {
+    SectionCard(
+        title = "설명",
+        trailing = {
+            val label = when {
+                explanation == null -> null
+                explanation.fromLlm -> "AI 생성"
+                else -> "오프라인 문구"
+            }
+            label?.let {
+                Row(
+                    Modifier
+                        .clip(MaterialTheme.shapes.small)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Icon(Icons.Rounded.AutoAwesome, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                    Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        },
+    ) {
+        when {
+            driving.isDriving -> {
+                Text(
+                    driving.restrict(explanation?.summary ?: finding.adviceLevel.message),
+                    style = MaterialTheme.typography.headlineSmall,
+                )
+                Text(
+                    "주행 중에는 요약만 표시됩니다. 정차 후 상세 설명을 확인하세요.",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            explanation == null -> {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 3.dp)
+                    Text("설명을 생성하는 중입니다…", style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+            else -> Text(explanation.detail, style = MaterialTheme.typography.bodyLarge)
+        }
     }
 }
 
 /** 등급이 왜 이렇게 나왔는지를 그대로 보여준다 — "설명 가능한 판단". */
 @Composable
 private fun EvidenceCard(finding: Finding) {
-    SectionCard(title = "이 등급이 나온 근거") {
-        LabeledRow("감지 방식", finding.anomaly.pattern.label)
-        LabeledRow("판단 신호", finding.anomaly.evidence)
-
-        Text("긴급도 계산", style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(top = 6.dp))
-
-        ScoreRow(
-            "기본 심각도 (${finding.part.label})",
-            "+${finding.anomaly.baseSeverity.score}",
-        )
-        finding.appliedWeights.forEach { w ->
-            ScoreRow(w.reason, "+${w.points}")
+    SectionCard(title = "판단 근거", subtitle = "규칙 기반으로 계산된 긴급도입니다") {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            LabeledBlock("감지 방식", finding.anomaly.pattern.label)
+            LabeledBlock("판단 신호", finding.anomaly.evidence)
         }
-        ScoreRow("합계", "${finding.urgencyScore}점", bold = true)
+
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clip(MaterialTheme.shapes.medium)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text("긴급도 계산", style = MaterialTheme.typography.titleSmall)
+            InfoRow("기본 심각도 (${finding.part.label})", "+${finding.anomaly.baseSeverity.score}")
+            finding.appliedWeights.forEach { w -> InfoRow(w.reason, "+${w.points}") }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+            InfoRow("합계", "${finding.urgencyScore}점", emphasize = true)
+        }
 
         if (finding.floorApplied) {
-            Text(
-                "안전 핵심 부품이라 환경과 무관하게 최소 3단계로 판정됐습니다.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.error,
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Icon(Icons.Rounded.Shield, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+                Text(
+                    "안전 핵심 부품이라 환경과 무관하게 최소 3단계로 판정됐습니다.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
         }
         if (finding.appliedWeights.isEmpty() && !finding.floorApplied) {
             Text(
@@ -159,33 +238,9 @@ private fun EvidenceCard(finding: Finding) {
 }
 
 @Composable
-private fun LabeledRow(label: String, value: String) {
+private fun LabeledBlock(label: String, value: String) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(label, style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, style = MaterialTheme.typography.bodyLarge)
-    }
-}
-
-@Composable
-private fun ScoreRow(label: String, value: String, bold: Boolean = false) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
-        )
-        Text(
-            value,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = if (bold) FontWeight.Bold else FontWeight.Medium,
-        )
     }
 }
